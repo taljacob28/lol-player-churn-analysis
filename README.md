@@ -1,8 +1,10 @@
-# League of Legends — Player Churn & Retention Analysis
+# League of Legends: Player Churn & Retention Analysis
 
-An end-to-end data analyst project on original data pulled from the Riot Games API. It predicts which committed ranked players churn, identifies the behavioral signals that separate churned from retained players, and turns those signals into prioritized, testable retention actions — the kind of work a game analytics team does.
+An end-to-end data analyst project on original data pulled from the Riot Games API. It predicts which committed ranked players churn, identifies the behavioral signals that separate churned from retained players, and turns those signals into prioritized, testable retention actions, the kind of work a game analytics team does. As a final layer, it also benchmarks this hand-built analysis against three modern AI data tools, a test of where automated analysis helps and where human judgment still decides the outcome.
 
 **[View the live dashboard on Tableau Public »](https://public.tableau.com/views/LoL-PlayerChurnAnalysis/Dashboard1)**
+
+**[How it stacks up against AI data tools (Bricks, Julius, Quadratic) »](./ai_comparison/AI_TOOLS_COMPARISON.md)**
 
 ![Player Churn Analysis dashboard](./images/dashboard.png)
 
@@ -23,7 +25,7 @@ The rigor lives here, before any chart is drawn.
 - **Observation window:** six months per player, split into a **four-month feature period** and a **two-month outcome period**.
 - **Engaged population:** a player is included only if they played at least **30 ranked games in the feature period**. The question is why *committed* players leave, not why casual players drift off.
 - **Churn label:** a player is churned if they played **zero ranked games in the outcome period** after being active in the feature period.
-- **Leakage-safe by design:** every behavioral feature, including `days_since_last`, is measured **as of the feature/outcome cutoff** — before the outcome is known. Recency therefore acts as a genuine leading indicator, not a circular restatement of the label.
+- **Leakage-safe by design:** every behavioral feature, including `days_since_last`, is measured **as of the feature/outcome cutoff**, before the outcome is known. Recency therefore acts as a genuine leading indicator, not a circular restatement of the label.
 
 ### Population funnel
 
@@ -45,11 +47,11 @@ High-tier churn is effectively zero because rank decay forces continued play, so
 Compared with retained players, churned players showed:
 
 - **+159%** days since last game (the dominant leading signal)
-- **−86%** games trend (flat or declining activity, while retained players were still ramping up)
-- **−26%** unique champions (narrower pools)
-- **−14%** account level (newer accounts)
+- **-86%** games trend (flat or declining activity, while retained players were still ramping up)
+- **-26%** unique champions (narrower pools)
+- **-14%** account level (newer accounts)
 - **+20%** games per active day (burstier sessions)
-- **+14%** average KDA and **+2%** win rate — i.e. they performed **as well or better**
+- **+14%** average KDA and **+2%** win rate. They performed **as well or better**
 
 That last point is the crux: churned players were not losing more or playing worse. They simply stopped showing up. A standardized logistic model confirms the ranking (AUC ≈ 0.72), with recency, total games, and activity trend on top and win rate near zero.
 
@@ -61,23 +63,43 @@ The recency-by-frequency heatmap makes it visual: the longer since a player was 
 
 These are framed as **hypotheses to validate with A/B tests**, not proven fixes. The data is observational, so it can motivate an intervention and predict who to target, but only an experiment can prove an intervention works.
 
-1. **Act in the cooling window, not after.** The reachable group is the ~105 *cooling* and *at-risk* players (28–32% churn), not the *dormant* group (48% churn, largely already gone). Trigger re-engagement — a push or email — when a regular player's gap grows beyond their own baseline, before they lapse.
+1. **Act in the cooling window, not after.** The reachable group is the ~105 *cooling* and *at-risk* players (28 to 32% churn), not the *dormant* group (48% churn, largely already gone). Trigger re-engagement, a push or email, when a regular player's gap grows beyond their own baseline, before they lapse.
 2. **Reduce early-tenure churn.** Churned players are newer accounts, and the hardest, least forgiving roles (Jungle, Support) churn most. Improve role-specific onboarding, or steer newcomers toward more forgiving roles first. *(Hypothesis to test.)*
-3. **Encourage champion variety — cautiously.** Narrow champion pools correlate with churn, but this may be a symptom of fading interest rather than a cause. Worth testing exploration nudges; not worth asserting as fact.
+3. **Encourage champion variety, cautiously.** Narrow champion pools correlate with churn, but this may be a symptom of fading interest rather than a cause. Worth testing exploration nudges; not worth asserting as fact.
 4. **Do not chase skill or matchmaking.** Win rate is unchanged and KDA is higher among churners. Spending on "help them win more" would target the wrong problem.
 
 Each recommendation pairs with a measurable success metric (return rate within the outcome window) so it can be run as a controlled experiment.
 
 ---
 
+## Analysis notebooks (Python)
+
+The full analysis runs as five ordered Jupyter notebooks in [`notebooks/`](./notebooks). Each notebook consumes the output of the one before it, so the pipeline is reproducible from raw API pulls to BI-ready extracts.
+
+- **[01 Data Collection](./notebooks/01_data_collection.ipynb).** Seeds a stratified sample across all ten tiers from the live ladder, then pulls ranked match history from the Riot API.
+- **[02 Parsing and Cleaning](./notebooks/02_parsing_and_cleaning.ipynb).** Turns raw match json into a tidy player match table, one row per engaged player per game, and applies the cleaning rules.
+- **[03 Feature Engineering](./notebooks/03_feature_engineering.ipynb).** Collapses that table to one row per player. Splits the feature period at its midpoint to build a games trend signal, attaches the churn label, and engineers the behavioral features.
+- **[04 Churn Analysis and Drivers](./notebooks/04_churn_analysis.ipynb).** The core analysis. Compares churned and retained players, ranks the drivers by effect size, and fits a standardized logistic regression with an AUC of about 0.72.
+- **[05 Tableau Prep](./notebooks/05_tableau_prep.ipynb).** Restricts the population to where churn lives (low and mid tier), builds the RFM features, and exports the extracts the Tableau dashboard reads.
+
+The driver ranking uses standardized effect sizes (Cohen's d), so the bars are directly comparable across features. The disengagement features, games trend and games per active day, sit near the top. Win rate and KDA point the wrong way for a frustration story, because churners do slightly better, not worse.
+
+![Behavioral churn drivers by effect size](./images/driver_ranking.png)
+
+The clearest single signal is the engagement trend. Retained players tend to ramp up across the feature window. Churned players flatten or slow down well before they go dormant, which is what makes recency a leading indicator rather than a lagging one.
+
+![Engagement trend, retained versus churned](./images/games_trend_by_churn.png)
+
+---
+
 ## SQL modeling layer
 
-The processed data is loaded into **SQL Server** and modeled as a **star schema** — a `fact_player_match` table (one row per game) joined to `dim_player`, `dim_champion`, `dim_date`, and `dim_tier`. One practical detail: pandas writes text columns as `NVARCHAR(MAX)`, which SQL Server cannot index or key, so the build script re-types the join keys to `VARCHAR` before creating primary keys and indexes.
+The processed data is loaded into **SQL Server** and modeled as a **star schema**: a `fact_player_match` table (one row per game) joined to `dim_player`, `dim_champion`, `dim_date`, and `dim_tier`. One practical detail: pandas writes text columns as `NVARCHAR(MAX)`, which SQL Server cannot index or key, so the build script re-types the join keys to `VARCHAR` before creating primary keys and indexes.
 
 On top of the schema sit two query files:
 
 - **Foundational** (`02_basic_queries.sql`): dataset overview, churn by tier band, churn by role (low/mid only), activity by hour and weekday, engagement segments built with `CASE`, and churn per tier with a `HAVING` floor on sample size.
-- **Advanced** (`03_advanced_queries.sql`): window functions and CTEs — top-3 champions per tier with `ROW_NUMBER`, week-over-week activity with a running total (`SUM OVER`) and prior-week comparison (`LAG`), activity quartiles with `NTILE`, ISO-week handling, and each player's longest losing streak via a **gaps-and-islands** pattern:
+- **Advanced** (`03_advanced_queries.sql`): window functions and CTEs: top-3 champions per tier with `ROW_NUMBER`, week-over-week activity with a running total (`SUM OVER`) and prior-week comparison (`LAG`), activity quartiles with `NTILE`, ISO-week handling, and each player's longest losing streak via a **gaps-and-islands** pattern:
 
 ```sql
 -- Longest losing streak per player (gaps and islands)
@@ -104,7 +126,7 @@ Full scripts in [`sql/`](./sql).
 
 ## Excel RFM segmentation
 
-A self-contained **RFM workbook** (`excel/rfm_churn_analysis.xlsx`, ~1,800 live formulas, navy/gold theme) segments the 335 low/mid players on three axes scored 1–4 by quartile: **Recency** (days since last game, reversed), **Frequency** (total games), and **Engagement breadth** (unique champions). The scores combine into five named segments, each with its own churn rate:
+A self-contained **RFM workbook** (`excel/rfm_churn_analysis.xlsx`, ~1,800 live formulas, navy/gold theme) segments the 335 low/mid players on three axes scored 1 to 4 by quartile: **Recency** (days since last game, reversed), **Frequency** (total games), and **Engagement breadth** (unique champions). The scores combine into five named segments, each with its own churn rate:
 
 | Segment | Players | Churn rate |
 |---|---|---|
@@ -114,7 +136,7 @@ A self-contained **RFM workbook** (`excel/rfm_churn_analysis.xlsx`, ~1,800 live 
 | At risk | 69 | 32% |
 | Dormant | 52 | 48% |
 
-This is what drives the "act in the cooling window" recommendation: the **At-risk + Cooling group (105 players)** is still reachable, while the **Dormant group** is largely already gone. The workbook has eight sheets — `Dashboard` (KPIs, charts, a priority-actions panel), `Data`, `Cutoffs`, `Segments`, `RF_Heatmap`, `Drivers`, `Cuts`, and `About` — so the full scoring logic is transparent and auditable, not hidden in code.
+This is what drives the "act in the cooling window" recommendation: the **At-risk + Cooling group (105 players)** is still reachable, while the **Dormant group** is largely already gone. The workbook has eight sheets: `Dashboard` (KPIs, charts, a priority-actions panel), `Data`, `Cutoffs`, `Segments`, `RF_Heatmap`, `Drivers`, `Cuts`, and `About`, so the full scoring logic is transparent and auditable, not hidden in code.
 
 ![Excel RFM dashboard](./images/excel_rfm_dashboard.png)
 
@@ -149,7 +171,7 @@ images/         dashboard and chart exports
 
 ## AI data tools vs. this manual workflow
 
-I gave the same labeled dataset to three AI analysis tools — **Bricks, Julius, and Quadratic** — and evaluated them against this manual analysis. The short version: Julius and Quadratic independently rediscovered most of the findings in minutes, while Bricks missed the tier-scoping call and chased a frustration red herring; Quadratic's logistic model also surfaced a loss-streak "driver" that its own group means did not support. The value of the project lived in the decisions the tools do not make on their own — a leakage-safe design, scoping to where churn exists, separating correlation from causation, and framing recommendations as experiments.
+I gave the same labeled dataset to three AI analysis tools (**Bricks, Julius, and Quadratic**) and evaluated them against this manual analysis. The short version: Julius and Quadratic independently rediscovered most of the findings in minutes, while Bricks missed the tier-scoping call and chased a frustration red herring; Quadratic's logistic model also surfaced a loss-streak "driver" that its own group means did not support. The value of the project lived in the decisions the tools do not make on their own: a leakage-safe design, scoping to where churn exists, separating correlation from causation, and framing recommendations as experiments.
 
 **[Read the full comparison »](./ai_comparison/AI_TOOLS_COMPARISON.md)**
 
