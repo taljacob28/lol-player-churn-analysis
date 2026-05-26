@@ -2,13 +2,13 @@
 
 ## Why this experiment
 
-I built this churn analysis by hand: a Python ingestion pipeline, a leakage-safe windowed study design, SQL modeling, and a Tableau dashboard. Then I gave the **same labeled dataset** to three AI data-analysis tools — **Bricks**, **Julius**, and **Quadratic** — and asked each the same question. The goal was not to crown a winner. It was to see where automated analysis genuinely helps, and where human judgment still decides the outcome.
+I built this churn analysis by hand: a Python ingestion pipeline, a leakage-safe windowed study design, SQL modeling, and a Tableau dashboard. Then I gave the **same labeled dataset** to three AI data-analysis tools (**Bricks**, **Julius**, and **Quadratic**) and asked each the same question. The goal was not to crown a winner. It was to see where automated analysis genuinely helps, and where human judgment still decides the outcome.
 
 ## The fair test
 
 - **Same file** for all three: `lol_churn_dataset.csv` (704 players, 19 behavioral features plus a churn label).
 - **Same open prompt**, phrased the way a stakeholder would ask: *"Analyze what distinguishes churned from retained players, and recommend how to reduce churn. Be specific about which signals matter most."*
-- One framing note that matters: the **entire upstream pipeline was manual** — collecting matches, defining churn, splitting a 4-month feature window from a 2-month outcome window to prevent leakage, and engineering the features. The tools only ever saw a clean, pre-labeled table. They enter at the analysis stage, not the data-engineering stage where much of the rigor lives.
+- One framing note that matters: the **entire upstream pipeline was manual**: collecting matches, defining churn, splitting a 4-month feature window from a 2-month outcome window to prevent leakage, and engineering the features. The tools only ever saw a clean, pre-labeled table. They enter at the analysis stage, not the data-engineering stage where much of the rigor lives.
 
 ## Scorecard
 
@@ -17,7 +17,7 @@ I built this churn analysis by hand: a Python ingestion pipeline, a leakage-safe
 | Speed and effort | Very high | High | High |
 | Caught the scoping call (high tier = 0% churn) | No | Yes | Yes |
 | Statistical depth | Medium (added CIs) | High (effect sizes) | Highest (logistic regression + odds ratios) |
-| Correct on "disengagement, not frustration" | No — over-weighted frustration | Yes | Yes |
+| Correct on "disengagement, not frustration" | No, over-weighted frustration | Yes | Yes |
 | Causal honesty / proposed validation | Low | Partial | Partial |
 | Visualization | Polished but cluttered | Clear | Clear |
 | Transparency and reproducibility | Low (no-code, opaque groupings) | High (visible code) | High (auditable tables) |
@@ -25,9 +25,9 @@ I built this churn analysis by hand: a Python ingestion pipeline, a leakage-safe
 
 ---
 
-## Bricks — fast and polished, but missed the key calls
+## Bricks: fast and polished, but missed the key calls
 
-![Bricks dashboard](./images/bricks_dashboard.png)
+![Bricks dashboard](../images/bricks_dashboard.png)
 
 [Live output](https://app.thebricks.com/file/46893f95-014a-4365-8aa3-50885d153956/8513@d72f5b44-2a75-47ac-b872-bae6d0e14ae9:0/visual-board)
 
@@ -36,17 +36,17 @@ Bricks produced a full themed, multi-panel dashboard from one prompt in seconds,
 But it missed the two decisions that mattered most:
 
 - **It never isolated the tiers.** It reported the blended all-tier churn rate of 9.5% and analyzed all 704 players together, never noticing that high-tier churn is exactly 0% and that the entire phenomenon lives in low and mid tiers.
-- **It chased a red herring.** It promoted average frustration pings to a headline KPI, built a whole "Frustration and Early Exit Signals" panel, and recommended "frustration mitigation strategies." The data says the opposite — churned players win at the same rate and post higher KDA, so churn is quiet disengagement, not frustration. Bricks surfaced frustration mainly because the columns existed, and that would have pointed a stakeholder at the wrong lever.
+- **It chased a red herring.** It promoted average frustration pings to a headline KPI, built a whole "Frustration and Early Exit Signals" panel, and recommended "frustration mitigation strategies." The data says the opposite: churned players win at the same rate and post higher KDA, so churn is quiet disengagement, not frustration. Bricks surfaced frustration mainly because the columns existed, and that would have pointed a stakeholder at the wrong lever.
 
-It was also the least transparent: groupings like "Performance Bands 1–10" are undefined, and a "Gap in Total Games = 100" KPI does not match the real churned-vs-retained gap of about 13 games.
+It was also the least transparent: groupings like "Performance Bands 1 to 10" are undefined, and a "Gap in Total Games = 100" KPI does not match the real churned-vs-retained gap of about 13 games.
 
 ---
 
-## Julius — nearly reproduced the manual analysis
+## Julius: nearly reproduced the manual analysis
 
-![Julius box plots](./images/julius_boxplots.png)
+![Julius box plots](../images/julius_boxplots.png)
 
-![Julius churn by recency and tier](./images/julius_heatmap.png)
+![Julius churn by recency and tier](../images/julius_heatmap.png)
 
 [Live output](https://julius.ai/chat?id=fcfec5b6-ec2f-4d08-a90c-d11a1adbb4fc)
 
@@ -60,13 +60,13 @@ Where the human still added value: Julius stated its recommendations with confid
 
 ---
 
-## Quadratic — the most rigorous model, and one instructive trap
+## Quadratic: the most rigorous model, and one instructive trap
 
-![Quadratic driver chart](./images/quad_driver_chart.png)
+![Quadratic driver chart](../images/quad_driver_chart.png)
 
-![Quadratic group means](./images/quad_group_means.png)
+![Quadratic group means](../images/quad_group_means.png)
 
-![Quadratic logistic importance and churn by tier](./images/quad_logit_tier.png)
+![Quadratic logistic importance and churn by tier](../images/quad_logit_tier.png)
 
 [Live output](https://app.quadratichq.com/file/e39c96dc-57d0-4a9e-aac3-a0151056a4e2)
 
@@ -75,7 +75,7 @@ Quadratic was the most statistically serious of the three. It fit a standardized
 It also produced the single most instructive moment of the whole comparison:
 
 - Quadratic elevated **`longest_loss_streak`** to a top-five driver based on its logistic coefficient (odds ratio 1.32) and recommended a "loss-streak circuit breaker."
-- But its own group-means table shows loss streak is **nearly identical** between churned (5.88) and retained (6.01) players — a standardized difference of only −0.07.
+- But its own group-means table shows loss streak is **nearly identical** between churned (5.88) and retained (6.01) players, a standardized difference of only -0.07.
 - The positive coefficient is a multivariate suppressor artifact, not a real marginal effect. Trusting the coefficient without checking it against the raw means produced a recommendation the data does not support.
 
 This is exactly the kind of trap a careful analyst catches by cross-checking model coefficients against the marginal distributions. The tool did not. Quadratic also computed churn by role on all tiers blended, so its role ranking differs from the low/mid-scoped view it had itself recommended.
