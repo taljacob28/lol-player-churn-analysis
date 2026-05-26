@@ -1,0 +1,27 @@
+# Secrets: never commit API keys
+.env
+.env.local
+.env.*.local
+
+# Python
+venv/
+.venv/
+env/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Data: keep analysis-ready CSVs, drop the raw cache and large or intermediate files
+data/*
+!data/player_features.csv
+!data/driver_ranking.csv
+
+# Scratch / preview images
+ai_comparison/_*.png
+ai_comparison/bricks_crop_try1.png
